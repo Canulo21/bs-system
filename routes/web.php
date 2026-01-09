@@ -19,10 +19,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/suppliers-table/data', [App\Http\Controllers\Admin\SuppliersController::class, 'getSuppliersTable']);
     Route::post('/supplier/create', [App\Http\Controllers\Admin\SuppliersController::class, 'createSupplier']);
+    Route::put('/supplier/update/{id}', [App\Http\Controllers\Admin\SuppliersController::class, 'updateSupplier']);
     Route::delete('/supplier/remove/{id}', [App\Http\Controllers\Admin\SuppliersController::class, 'removeSupplier']);
 
     Route::get('/articles-table/data', [App\Http\Controllers\Admin\ArticlesController::class, 'getArticlesTable']);
     Route::post('/article/create', [App\Http\Controllers\Admin\ArticlesController::class, 'createArticle']);
+    Route::put('/article/update/{id}', [App\Http\Controllers\Admin\ArticlesController::class, 'updateArticle']);
     Route::delete('/article/remove/{id}', [App\Http\Controllers\Admin\ArticlesController::class, 'removeArticle']);
 
     Route::get('/mode-of-procurement-table', [App\Http\Controllers\Admin\ModeOfProcurementController::class, 'getModeOfProcurementTable']);

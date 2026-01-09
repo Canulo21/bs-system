@@ -29,6 +29,20 @@ class ArticlesController extends Controller
         ]);
     }
 
+    public function updateArticle(Request $request, $id) {
+        $articleData = $request->validate([
+            'article_name' => 'required|string|unique:articles,article_name,' . $id,
+        ]);
+
+        $article = Article::findOrFail($id);
+        $article->update($articleData);
+
+        return response()->json([
+            'data' => $article,
+            'message' => 'Article updated successfully'
+        ]);
+    }
+
     public function removeArticle(Request $request, $id) {
         $article = Article::findOrFail($id);
         $article->delete();

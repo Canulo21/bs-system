@@ -28,6 +28,20 @@ class SuppliersController extends Controller
         ]);
     }
 
+    public function updateSupplier(Request $request, $id) {
+        $supplierData = $request->validate([
+            'supplier_name' => 'required|string|unique:suppliers,supplier_name,' . $id,
+        ]);
+
+        $supplier = Supplier::findOrFail($id);
+        $supplier->update($supplierData);
+
+        return response()->json([
+            'data' => $supplier,
+            'message' => 'Supplier updated successfully'
+        ]);
+    }
+
     public function removeSupplier(Request $request, $id) {
         $supplier = Supplier::findOrFail($id);
         $supplier->delete();

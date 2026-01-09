@@ -40,8 +40,23 @@ export default function SupplierIndex() {
     const [paginationData, setPaginationData] = useState<Supplier[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
+        null,
+    );
 
     const { data, setData, errors, setError, clearErrors } = useForm({
+        supplier_name: '',
+    });
+
+    // Edit form
+    const {
+        data: editData,
+        setData: setEditData,
+        errors: editErrors,
+        setError: setEditError,
+        clearErrors: clearEditErrors,
+    } = useForm({
         supplier_name: '',
     });
 
@@ -94,6 +109,48 @@ export default function SupplierIndex() {
             clearErrors();
         } catch (err: any) {
             setError(err.response.data.errors);
+        }
+    };
+
+    // CLICK EDIT → load data & open dialog
+    const handleUpdateSupplier = (id: number) => {
+        const record = paginationData.find((d) => d.id === id);
+        if (!record) return;
+
+        setSelectedSupplier(record);
+        setEditData({
+            supplier_name: record.supplier_name,
+        });
+
+        clearEditErrors();
+        setIsEditDialogOpen(true);
+    };
+
+    // SUBMIT EDIT
+    const submitUpdateSupplier = async () => {
+        if (!selectedSupplier) return;
+
+        try {
+            const res = await axios.put(
+                `/supplier/update/${selectedSupplier.id}`,
+                editData,
+            );
+
+            await fetchData();
+
+            Swal.fire({
+                position: 'center',
+                icon: 'success',
+                title: res.data.message,
+                showConfirmButton: false,
+                timer: 1500,
+            });
+
+            setIsEditDialogOpen(false);
+            setSelectedSupplier(null);
+            clearEditErrors();
+        } catch (err: any) {
+            setEditError(err.response.data.errors);
         }
     };
 
@@ -203,7 +260,11 @@ export default function SupplierIndex() {
                                             Actions
                                         </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() =>
+                                                handleUpdateSupplier(data.id)
+                                            }
+                                        >
                                             <Pencil /> Edit
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
@@ -243,6 +304,65 @@ export default function SupplierIndex() {
                     </Button>
                 </div>
             )}
+
+            {/* EDIT MODAL */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Supplier</DialogTitle>
+                    </DialogHeader>
+
+                    {selectedSupplier && (
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                submitUpdateSupplier();
+                            }}
+                        >
+                            <Label className="mt-4 mb-2 block text-sm">
+                                Supplier Name
+                            </Label>
+                            <Input
+                                type="text"
+                                placeholder="eg: ABC's Equipment"
+                                value={editData.supplier_name}
+                                onChange={(e) =>
+                                    setEditData({
+                                        ...editData,
+                                        supplier_name: e.target.value,
+                                    })
+                                }
+                            />
+                            <InputError
+                                className="mt-1"
+                                message={editErrors.supplier_name}
+                            />
+
+                            <div className="mt-8 flex flex-col-reverse gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={() => {
+                                        setIsEditDialogOpen(false);
+                                        setSelectedSupplier(null);
+                                        clearEditErrors();
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    variant="default"
+                                    className="w-full"
+                                >
+                                    Update
+                                </Button>
+                            </div>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

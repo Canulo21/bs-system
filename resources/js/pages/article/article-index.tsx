@@ -42,8 +42,23 @@ export default function ArticleIndex() {
     const [paginationData, setPaginationData] = useState<Article[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [selectedArticle, setSelectedArticle] = useState<Article | null>(
+        null,
+    );
 
     const { data, setData, errors, setError, clearErrors } = useForm({
+        article_name: '',
+    });
+
+    // Edit form
+    const {
+        data: editData,
+        setData: setEditData,
+        errors: editErrors,
+        setError: setEditError,
+        clearErrors: clearEditErrors,
+    } = useForm({
         article_name: '',
     });
 
@@ -96,6 +111,48 @@ export default function ArticleIndex() {
             clearErrors();
         } catch (err: any) {
             setError(err.response.data.errors);
+        }
+    };
+
+    // CLICK EDIT → load data & open dialog
+    const handleUpdateArticle = (id: number) => {
+        const record = paginationData.find((d) => d.id === id);
+        if (!record) return;
+
+        setSelectedArticle(record);
+        setEditData({
+            article_name: record.article_name,
+        });
+
+        clearEditErrors();
+        setIsEditDialogOpen(true);
+    };
+
+    // SUBMIT EDIT
+    const submitUpdateArticle = async () => {
+        if (!selectedArticle) return;
+
+        try {
+            const res = await axios.put(
+                `/article/update/${selectedArticle.id}`,
+                editData,
+            );
+
+            await fetchData();
+
+            Swal.fire({
+                position: 'center',
+                icon: 'success',
+                title: res.data.message,
+                showConfirmButton: false,
+                timer: 1500,
+            });
+
+            setIsEditDialogOpen(false);
+            setSelectedArticle(null);
+            clearEditErrors();
+        } catch (err: any) {
+            setEditError(err.response.data.errors);
         }
     };
 
@@ -208,7 +265,11 @@ export default function ArticleIndex() {
                                             Actions
                                         </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() =>
+                                                handleUpdateArticle(data.id)
+                                            }
+                                        >
                                             <Pencil /> Edit
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
@@ -248,6 +309,65 @@ export default function ArticleIndex() {
                     </Button>
                 </div>
             )}
+
+            {/* EDIT MODAL */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Article/Ordered</DialogTitle>
+                    </DialogHeader>
+
+                    {selectedArticle && (
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                submitUpdateArticle();
+                            }}
+                        >
+                            <Label className="mt-4 mb-2 block text-sm">
+                                Article Name
+                            </Label>
+                            <Input
+                                type="text"
+                                placeholder="eg: ABC's Equipment"
+                                value={editData.article_name}
+                                onChange={(e) =>
+                                    setEditData({
+                                        ...editData,
+                                        article_name: e.target.value,
+                                    })
+                                }
+                            />
+                            <InputError
+                                className="mt-1"
+                                message={editErrors.article_name}
+                            />
+
+                            <div className="mt-8 flex flex-col-reverse gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={() => {
+                                        setIsEditDialogOpen(false);
+                                        setSelectedArticle(null);
+                                        clearEditErrors();
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    variant="default"
+                                    className="w-full"
+                                >
+                                    Update
+                                </Button>
+                            </div>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -15,20 +15,23 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('mode_id')
+                   ->nullable()
                    ->constrained('mode_of_procurements')
-                   ->onDelete('cascade');
+                   ->nullOnDelete();
 
             $table->string('purchase_number');
             $table->date('purchase_date')->nullable();
             $table->date('purchase_date_issued')->nullable();
 
             $table->foreignId('supplier_id')
+                   ->nullable()
                    ->constrained('suppliers')
-                   ->onDelete('cascade');
+                   ->nullOnDelete();
 
             $table->foreignId('article_id')
+                   ->nullable()
                    ->constrained('articles')
-                   ->onDelete('cascade');
+                   ->nullOnDelete();
 
 
             $table->decimal('purchase_amount', 15, 2)->default(0);

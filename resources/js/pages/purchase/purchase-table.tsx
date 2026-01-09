@@ -55,23 +55,27 @@ export default function PurchaseTable() {
                             <TableCell className="font-medium">
                                 {i + 1}
                             </TableCell>
-                            <TableCell className="font-bold tracking-widest italic">
-                                {data.mode?.mode_abbreviation}
+                            <TableCell className="font-bold tracking-widest uppercase italic">
+                                {data.mode?.mode_abbreviation || 'N/A'}
                             </TableCell>
-                            <TableCell>{data.purchase_number}</TableCell>
-                            <TableCell>{data.purchase_date}</TableCell>
-                            <TableCell>{data.purchase_date_issued}</TableCell>
+                            <TableCell>
+                                {data.purchase_number || 'N/A'}
+                            </TableCell>
+                            <TableCell>{data.purchase_date || 'N/A'}</TableCell>
+                            <TableCell>
+                                {data.purchase_date_issued || 'N/A'}
+                            </TableCell>
                             <TableCell className="text-md font-bold tracking-widest capitalize italic">
-                                {data.supplier?.supplier_name}
+                                {data.supplier?.supplier_name || 'N/A'}
                             </TableCell>
                             <TableCell className="font-bold tracking-widest capitalize italic">
-                                {data.article?.article_name}
+                                {data.article?.article_name || 'N/A'}
                             </TableCell>
                             <TableCell className="text-right">
                                 {new Intl.NumberFormat('en-PH', {
                                     style: 'currency',
                                     currency: 'PHP',
-                                }).format(data.purchase_amount)}
+                                }).format(data.purchase_amount) || 'N/A'}
                             </TableCell>
                         </TableRow>
                     ))}
