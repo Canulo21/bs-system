@@ -27,6 +27,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/mode-of-procurement-table', [App\Http\Controllers\Admin\ModeOfProcurementController::class, 'getModeOfProcurementTable']);
     Route::post('/mode-of-procurement/create', [App\Http\Controllers\Admin\ModeOfProcurementController::class, 'createProcurement']);
+    Route::put('/mode-of-procurement/update/{id}', [App\Http\Controllers\Admin\ModeOfProcurementController::class, 'updateProcurement']);
     Route::delete('/mode-of-procurement/remove/{id}', [App\Http\Controllers\Admin\ModeOfProcurementController::class, 'removeProcurement']);
     
 });

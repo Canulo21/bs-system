@@ -39,8 +39,24 @@ import { ModeOfProcurement } from '../../types';
 
 export default function ProcurementIndex() {
     const [datas, setDatas] = useState<ModeOfProcurement[]>([]);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [selectedProcurement, setSelectedProcurement] =
+        useState<ModeOfProcurement | null>(null);
 
+    // Create form
     const { data, setData, errors, setError, clearErrors } = useForm({
+        mode_name: '',
+        mode_abbreviation: '',
+    });
+
+    // Edit form
+    const {
+        data: editData,
+        setData: setEditData,
+        errors: editErrors,
+        setError: setEditError,
+        clearErrors: clearEditErrors,
+    } = useForm({
         mode_name: '',
         mode_abbreviation: '',
     });
@@ -56,28 +72,15 @@ export default function ProcurementIndex() {
     };
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         fetchData();
     }, []);
 
     const handleAddModeOfProcurement = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        setError({
-            mode_name: '',
-            mode_abbreviation: '',
-        });
-
-        const payload = {
-            mode_name: data.mode_name,
-            mode_abbreviation: data.mode_abbreviation,
-        };
+        clearErrors();
 
         try {
-            const res = await axios.post(
-                '/mode-of-procurement/create',
-                payload,
-            );
+            const res = await axios.post('/mode-of-procurement/create', data);
             await fetchData();
 
             setData({
@@ -92,10 +95,51 @@ export default function ProcurementIndex() {
                 showConfirmButton: false,
                 timer: 1500,
             });
-
-            clearErrors();
         } catch (err: any) {
             setError(err.response.data.errors);
+        }
+    };
+
+    // CLICK EDIT → load data & open dialog
+    const handleUpdateProcurement = (id: number) => {
+        const record = datas.find((d) => d.id === id);
+        if (!record) return;
+
+        setSelectedProcurement(record);
+        setEditData({
+            mode_name: record.mode_name,
+            mode_abbreviation: record.mode_abbreviation,
+        });
+
+        clearEditErrors();
+        setIsEditDialogOpen(true);
+    };
+
+    // SUBMIT EDIT
+    const submitUpdateProcurement = async () => {
+        if (!selectedProcurement) return;
+
+        try {
+            const res = await axios.put(
+                `/mode-of-procurement/update/${selectedProcurement.id}`,
+                editData,
+            );
+
+            await fetchData();
+
+            Swal.fire({
+                position: 'center',
+                icon: 'success',
+                title: res.data.message,
+                showConfirmButton: false,
+                timer: 1500,
+            });
+
+            setIsEditDialogOpen(false);
+            setSelectedProcurement(null);
+            clearEditErrors();
+        } catch (err: any) {
+            setEditError(err.response.data.errors);
         }
     };
 
@@ -137,6 +181,7 @@ export default function ProcurementIndex() {
                 </h1>
                 <div className="flex gap-4">
                     <Input type="text" placeholder="Search by Name" />
+
                     <Dialog>
                         <DialogTrigger className="flex items-center gap-2 rounded-lg bg-green-600 px-3 text-sm font-bold text-white hover:opacity-80">
                             <Plus /> Add
@@ -147,14 +192,14 @@ export default function ProcurementIndex() {
                                     Add New Mode Of Procurement
                                 </DialogTitle>
                             </DialogHeader>
+
                             <form onSubmit={handleAddModeOfProcurement}>
-                                <Label className="text-md mt-4 mb-2 block text-sm">
+                                <Label className="mt-4 mb-2 block text-sm">
                                     Mode of Procurement Name
                                 </Label>
                                 <Input
                                     type="text"
                                     placeholder="eg: Direct Contracting"
-                                    minLength={5}
                                     value={data.mode_name}
                                     onChange={(e) =>
                                         setData({
@@ -168,7 +213,7 @@ export default function ProcurementIndex() {
                                     message={errors.mode_name}
                                 />
 
-                                <Label className="text-md mt-4 mb-2 block text-sm">
+                                <Label className="mt-4 mb-2 block text-sm">
                                     Abbreviation
                                 </Label>
                                 <Input
@@ -204,7 +249,7 @@ export default function ProcurementIndex() {
                 <TableCaption>A list of all Mode of Procurement.</TableCaption>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[50px]">No.</TableHead>
+                        <TableHead className="w-[70px]">No.</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>ABBr</TableHead>
                         <TableHead className="text-center">Actions</TableHead>
@@ -230,7 +275,11 @@ export default function ProcurementIndex() {
                                             Actions
                                         </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() =>
+                                                handleUpdateProcurement(data.id)
+                                            }
+                                        >
                                             <Pencil /> Edit
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
@@ -247,6 +296,84 @@ export default function ProcurementIndex() {
                     ))}
                 </TableBody>
             </Table>
+
+            {/* EDIT MODAL */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Mode of Procurement</DialogTitle>
+                    </DialogHeader>
+
+                    {selectedProcurement && (
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                submitUpdateProcurement();
+                            }}
+                        >
+                            <Label className="mt-4 mb-2 block text-sm">
+                                Mode of Procurement Name
+                            </Label>
+                            <Input
+                                type="text"
+                                placeholder="eg: Direct Contracting"
+                                value={editData.mode_name}
+                                onChange={(e) =>
+                                    setEditData({
+                                        ...editData,
+                                        mode_name: e.target.value,
+                                    })
+                                }
+                            />
+                            <InputError
+                                className="mt-1"
+                                message={editErrors.mode_name}
+                            />
+
+                            <Label className="mt-4 mb-2 block text-sm">
+                                Abbreviation
+                            </Label>
+                            <Input
+                                type="text"
+                                placeholder="eg: DC"
+                                value={editData.mode_abbreviation}
+                                onChange={(e) =>
+                                    setEditData({
+                                        ...editData,
+                                        mode_abbreviation: e.target.value,
+                                    })
+                                }
+                            />
+                            <InputError
+                                className="mt-1"
+                                message={editErrors.mode_abbreviation}
+                            />
+
+                            <div className="mt-8 flex flex-col-reverse gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={() => {
+                                        setIsEditDialogOpen(false);
+                                        setSelectedProcurement(null);
+                                        clearEditErrors();
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    variant="default"
+                                    className="w-full"
+                                >
+                                    Update
+                                </Button>
+                            </div>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
