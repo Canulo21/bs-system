@@ -16,12 +16,19 @@ class PurchaseDetailsController extends Controller
             'mode:id,mode_abbreviation',
             'supplier:id,supplier_name',
             'article:id,article_name',
-        ])->get();
+        ])->paginate(15);
 
+
+        return response()->json($table);
+
+    }
+
+    public function removePurchaseDetail($id) {
+        $purchaseDetail = PurchaseDetails::findOrFail($id);
+        $purchaseDetail->delete();
 
         return response()->json([
-            'data' => $table
+            'message' => 'Purchase detail removed successfully'
         ]);
-
     }
 }

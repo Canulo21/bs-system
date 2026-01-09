@@ -15,7 +15,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('dashboard');
     })->name('dashboard');
 
-    Route::get('/purchase-table', [App\Http\Controllers\Admin\PurchaseDetailsController::class, 'getPurchaseDetailsTable']);
+    Route::get('/purchase-table/data', [App\Http\Controllers\Admin\PurchaseDetailsController::class, 'getPurchaseDetailsTable']);
+    Route::delete('/purchase-detail/remove/{id}', [App\Http\Controllers\Admin\PurchaseDetailsController::class, 'removePurchaseDetail']);
 
     Route::get('/suppliers-table/data', [App\Http\Controllers\Admin\SuppliersController::class, 'getSuppliersTable']);
     Route::post('/supplier/create', [App\Http\Controllers\Admin\SuppliersController::class, 'createSupplier']);

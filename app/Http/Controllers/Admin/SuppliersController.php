@@ -19,7 +19,7 @@ class SuppliersController extends Controller
             $query->where('supplier_name', 'like', "%{$search}%");
         }
 
-         $table = $query->paginate(2);
+         $table = $query->paginate(10);
 
         return response()->json($table);
     }
