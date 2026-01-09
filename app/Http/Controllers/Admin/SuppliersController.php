@@ -9,8 +9,17 @@ use Illuminate\Http\Request;
 class SuppliersController extends Controller
 {
     //
-    public function getSuppliersTable() {
-        $table = Supplier::orderBy('supplier_name', 'asc')->paginate(100);
+    public function getSuppliersTable(Request $request) {
+
+        $query = Supplier::orderBy('supplier_name', 'asc');
+
+        // Check if there is a search query
+        if ($request->has('search') && $request->search != '') {
+            $search = $request->search;
+            $query->where('supplier_name', 'like', "%{$search}%");
+        }
+
+         $table = $query->paginate(2);
 
         return response()->json($table);
     }

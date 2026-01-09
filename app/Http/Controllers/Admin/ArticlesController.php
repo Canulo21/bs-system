@@ -9,11 +9,19 @@ use Illuminate\Http\Request;
 class ArticlesController extends Controller
 {
     //
-     public function getArticlesTable() {
-        $table = Article::orderBy('article_name', 'asc')->paginate(10);
+    public function getArticlesTable(Request $request) {
+        $query = Article::orderBy('article_name', 'asc');
+
+        // Check if there is a search query
+        if ($request->has('search') && $request->search != '') {
+            $search = $request->search;
+            $query->where('article_name', 'like', "%{$search}%");
+        }
+
+        // Paginate the results (10 per page)
+        $table = $query->paginate(10);
 
         return response()->json($table);
-        
     }
 
      public function createArticle(Request $request) {

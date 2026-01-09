@@ -40,6 +40,8 @@ export default function SupplierIndex() {
     const [paginationData, setPaginationData] = useState<Supplier[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
         null,
@@ -61,9 +63,11 @@ export default function SupplierIndex() {
     });
 
     // Fetch suppliers whenever currentPage changes
-    const fetchData = async (page: number = 1) => {
+    const fetchData = async (page: number = 1, search: string = '') => {
         try {
-            const response = await fetch(`/suppliers-table/data?page=${page}`);
+            const response = await fetch(
+                `/suppliers-table/data?page=${page}&search=${search}`,
+            );
             const data = await response.json();
 
             // Set suppliers and pagination info
@@ -75,9 +79,17 @@ export default function SupplierIndex() {
         }
     };
 
+    // Debounce search input
     useEffect(() => {
-        fetchData(currentPage);
-    }, [currentPage]);
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 500);
+        return () => clearTimeout(handler);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        fetchData(currentPage, debouncedSearch);
+    }, [currentPage, debouncedSearch]);
 
     const handleAddSupplier = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -189,7 +201,12 @@ export default function SupplierIndex() {
                     Suppliers
                 </h1>
                 <div className="flex gap-4">
-                    <Input type="text" placeholder="Search by Name" />
+                    <Input
+                        type="text"
+                        placeholder="Search by Name"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                     <Dialog>
                         <DialogTrigger className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 text-sm font-bold text-white hover:opacity-80">
                             <Plus /> Add

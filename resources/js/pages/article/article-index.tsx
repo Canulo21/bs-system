@@ -42,11 +42,14 @@ export default function ArticleIndex() {
     const [paginationData, setPaginationData] = useState<Article[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [selectedArticle, setSelectedArticle] = useState<Article | null>(
         null,
     );
 
+    // Add form
     const { data, setData, errors, setError, clearErrors } = useForm({
         article_name: '',
     });
@@ -62,43 +65,47 @@ export default function ArticleIndex() {
         article_name: '',
     });
 
-    const fetchData = async (page: number = 1) => {
+    // Fetch articles with pagination and optional search
+    const fetchData = async (page: number = 1, search: string = '') => {
         try {
-            const response = await fetch(`/articles-table/data?page=${page}`);
+            const response = await fetch(
+                `/articles-table/data?page=${page}&search=${search}`,
+            );
             const data = await response.json();
 
-            // Set suppliers and pagination info
             setPaginationData(data.data);
             setCurrentPage(data.current_page);
             setLastPage(data.last_page);
         } catch (error) {
-            console.error('Error fetching suppliers:', error);
+            console.error('Error fetching articles:', error);
         }
     };
 
+    // Debounce search input
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        fetchData(currentPage);
-    }, [currentPage]);
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 500);
+        return () => clearTimeout(handler);
+    }, [searchTerm]);
 
+    // Fetch data whenever page or debounced search changes
+    useEffect(() => {
+        fetchData(currentPage, debouncedSearch);
+    }, [currentPage, debouncedSearch]);
+
+    // Add new article
     const handleAddArticle = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        setError({
-            article_name: '',
-        });
-
-        const payload = {
-            article_name: data.article_name,
-        };
+        clearErrors();
 
         try {
-            const res = await axios.post('/article/create', payload);
-            await fetchData();
-
-            setData({
-                article_name: '',
+            const res = await axios.post('/article/create', {
+                article_name: data.article_name,
             });
+            await fetchData(1, debouncedSearch);
+
+            setData({ article_name: '' });
 
             Swal.fire({
                 position: 'center',
@@ -107,28 +114,23 @@ export default function ArticleIndex() {
                 showConfirmButton: false,
                 timer: 1500,
             });
-
-            clearErrors();
         } catch (err: any) {
             setError(err.response.data.errors);
         }
     };
 
-    // CLICK EDIT → load data & open dialog
+    // Open edit modal and load selected article
     const handleUpdateArticle = (id: number) => {
         const record = paginationData.find((d) => d.id === id);
         if (!record) return;
 
         setSelectedArticle(record);
-        setEditData({
-            article_name: record.article_name,
-        });
-
+        setEditData({ article_name: record.article_name });
         clearEditErrors();
         setIsEditDialogOpen(true);
     };
 
-    // SUBMIT EDIT
+    // Submit edited article
     const submitUpdateArticle = async () => {
         if (!selectedArticle) return;
 
@@ -137,8 +139,7 @@ export default function ArticleIndex() {
                 `/article/update/${selectedArticle.id}`,
                 editData,
             );
-
-            await fetchData();
+            await fetchData(currentPage, debouncedSearch);
 
             Swal.fire({
                 position: 'center',
@@ -150,12 +151,12 @@ export default function ArticleIndex() {
 
             setIsEditDialogOpen(false);
             setSelectedArticle(null);
-            clearEditErrors();
         } catch (err: any) {
             setEditError(err.response.data.errors);
         }
     };
 
+    // Delete article
     const handleDeleteArticle = (id: number) => {
         Swal.fire({
             title: 'Are you sure?',
@@ -169,7 +170,8 @@ export default function ArticleIndex() {
             if (result.isConfirmed) {
                 try {
                     const res = await axios.delete(`/article/remove/${id}`);
-                    await fetchData();
+                    await fetchData(currentPage, debouncedSearch);
+
                     Swal.fire({
                         position: 'center',
                         icon: 'success',
@@ -178,7 +180,7 @@ export default function ArticleIndex() {
                         timer: 1500,
                     });
                 } catch (err) {
-                    console.error('Error deleting procurement:', err);
+                    console.error('Error deleting article:', err);
                 }
             }
         });
@@ -186,12 +188,21 @@ export default function ArticleIndex() {
 
     return (
         <div className="h-full overflow-y-auto px-4 pb-4">
+            {/* Header + Add + Search */}
             <div className="sticky top-0 z-20 bg-background pt-4 pb-2">
                 <h1 className="mb-2 text-xl font-bold tracking-wide uppercase">
                     Article/Ordered
                 </h1>
                 <div className="flex gap-4">
-                    <Input type="text" placeholder="Search by Name" />
+                    {/* Search */}
+                    <Input
+                        type="text"
+                        placeholder="Search by Name"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+
+                    {/* Add Dialog */}
                     <Dialog>
                         <DialogTrigger className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-bold text-white hover:opacity-80">
                             <Plus /> Add
@@ -203,40 +214,39 @@ export default function ArticleIndex() {
                                 </DialogTitle>
                             </DialogHeader>
                             <form onSubmit={handleAddArticle}>
-                                <div>
-                                    <Label className="text-md mt-4 mb-2 block text-sm">
-                                        Article Name
-                                    </Label>
-                                    <Input
-                                        type="text"
-                                        placeholder="eg: ABC's Equipment"
-                                        minLength={5}
-                                        value={data.article_name}
-                                        onChange={(e) =>
-                                            setData({
-                                                ...data,
-                                                article_name: e.target.value,
-                                            })
-                                        }
-                                    />
-                                    <InputError
-                                        message={errors.article_name}
-                                        className="mt-2"
-                                    />
-                                    <Button
-                                        type="submit"
-                                        variant="default"
-                                        className="mt-8 w-full"
-                                    >
-                                        Save
-                                    </Button>
-                                </div>
+                                <Label className="text-md mt-4 mb-2 block text-sm">
+                                    Article Name
+                                </Label>
+                                <Input
+                                    type="text"
+                                    placeholder="eg: ABC's Equipment"
+                                    minLength={5}
+                                    value={data.article_name}
+                                    onChange={(e) =>
+                                        setData({
+                                            ...data,
+                                            article_name: e.target.value,
+                                        })
+                                    }
+                                />
+                                <InputError
+                                    message={errors.article_name}
+                                    className="mt-2"
+                                />
+                                <Button
+                                    type="submit"
+                                    variant="default"
+                                    className="mt-8 w-full"
+                                >
+                                    Save
+                                </Button>
                             </form>
                         </DialogContent>
                     </Dialog>
                 </div>
             </div>
 
+            {/* Articles Table */}
             <Table className="mt-2">
                 <TableCaption>A list of Article/Ordered.</TableCaption>
                 <TableHeader>
@@ -247,13 +257,13 @@ export default function ArticleIndex() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {paginationData.map((data, i) => (
-                        <TableRow key={i}>
+                    {paginationData.map((item, i) => (
+                        <TableRow key={item.id}>
                             <TableCell>
                                 {(currentPage - 1) * 10 + i + 1}
                             </TableCell>
                             <TableCell className="capitalize">
-                                {data.article_name}
+                                {item.article_name}
                             </TableCell>
                             <TableCell className="text-center">
                                 <DropdownMenu>
@@ -267,14 +277,14 @@ export default function ArticleIndex() {
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                             onClick={() =>
-                                                handleUpdateArticle(data.id)
+                                                handleUpdateArticle(item.id)
                                             }
                                         >
                                             <Pencil /> Edit
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                             onClick={() =>
-                                                handleDeleteArticle(data.id)
+                                                handleDeleteArticle(item.id)
                                             }
                                         >
                                             <Trash2 /> Delete
@@ -287,7 +297,7 @@ export default function ArticleIndex() {
                 </TableBody>
             </Table>
 
-            {/* Pagination Controls */}
+            {/* Pagination */}
             {lastPage > 1 && (
                 <div className="mt-5 flex items-center justify-center gap-4">
                     <Button
@@ -310,13 +320,12 @@ export default function ArticleIndex() {
                 </div>
             )}
 
-            {/* EDIT MODAL */}
+            {/* Edit Dialog */}
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Edit Article/Ordered</DialogTitle>
                     </DialogHeader>
-
                     {selectedArticle && (
                         <form
                             onSubmit={(e) => {

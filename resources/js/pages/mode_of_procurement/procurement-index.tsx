@@ -40,6 +40,8 @@ import { ModeOfProcurement } from '../../types';
 export default function ProcurementIndex() {
     const [datas, setDatas] = useState<ModeOfProcurement[]>([]);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
     const [selectedProcurement, setSelectedProcurement] =
         useState<ModeOfProcurement | null>(null);
 
@@ -61,9 +63,11 @@ export default function ProcurementIndex() {
         mode_abbreviation: '',
     });
 
-    const fetchData = async () => {
+    const fetchData = async (search: string = '') => {
         try {
-            const response = await fetch('/mode-of-procurement-table');
+            const response = await fetch(
+                `/mode-of-procurement-table?search=${search}`,
+            );
             const data = await response.json();
             setDatas(data.data);
         } catch (error) {
@@ -71,9 +75,17 @@ export default function ProcurementIndex() {
         }
     };
 
+    // Debounce search input
     useEffect(() => {
-        fetchData();
-    }, []);
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 500);
+        return () => clearTimeout(handler);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        fetchData(debouncedSearch);
+    }, [debouncedSearch]);
 
     const handleAddModeOfProcurement = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -180,7 +192,12 @@ export default function ProcurementIndex() {
                     Mode of Procurement
                 </h1>
                 <div className="flex gap-4">
-                    <Input type="text" placeholder="Search by Name" />
+                    <Input
+                        type="text"
+                        placeholder="Search by Name"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
 
                     <Dialog>
                         <DialogTrigger className="flex items-center gap-2 rounded-lg bg-green-600 px-3 text-sm font-bold text-white hover:opacity-80">

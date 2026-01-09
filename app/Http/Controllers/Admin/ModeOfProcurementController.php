@@ -9,12 +9,20 @@ use Illuminate\Http\Request;
 class ModeOfProcurementController extends Controller
 {
     //
-    public function getModeOfProcurementTable() {
-        $table = ModeOfProcurement::orderBy('mode_name', 'asc')->get();
+    public function getModeOfProcurementTable(Request $request) {
 
-        return response()->json([
-            'data' => $table
-        ]);
+        $query = ModeOfProcurement::orderBy('mode_name', 'asc');
+
+        // Check if there is a search query
+        if ($request->has('search') && $request->search != '') {
+            $search = $request->search;
+            $query->where('mode_name', 'like', "%{$search}%");
+        }
+
+        // Paginate the results (10 per page)
+        $table = $query->paginate(10);
+
+        return response()->json($table);
     }
 
 
