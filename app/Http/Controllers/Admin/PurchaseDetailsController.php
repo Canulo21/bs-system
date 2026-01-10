@@ -16,7 +16,9 @@ class PurchaseDetailsController extends Controller
             'mode:id,mode_abbreviation',
             'supplier:id,supplier_name',
             'article:id,article_name',
-        ])->paginate(15);
+        ])
+        ->latest()
+        ->paginate(15);
 
 
         return response()->json($table);
@@ -39,6 +41,27 @@ class PurchaseDetailsController extends Controller
         return response()->json([
             'data' => $purchaseDetail,
             'message' => 'Purchase detail created successfully'
+        ]);
+    }
+
+    public function updatePurchaseDetail(Request $request, $id) {
+        $purchaseDetail = PurchaseDetails::findOrFail($id);
+
+        $validatedData = $request->validate([
+            'mode_id' => 'required|exists:mode_of_procurements,id',
+            'purchase_number' => 'required|string',
+            'purchase_date' => 'required|date',
+            'purchase_date_issued' => 'required|date',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'article_id' => 'required|exists:articles,id',
+            'purchase_amount' => 'required|numeric',
+        ]);
+
+        $purchaseDetail->update($validatedData);
+
+        return response()->json([
+            'data' => $validatedData,
+            'message' => 'Purchase detail updated successfully'
         ]);
     }
 

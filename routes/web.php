@@ -18,6 +18,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/purchase-table/data', [App\Http\Controllers\Admin\PurchaseDetailsController::class, 'getPurchaseDetailsTable']);
     Route::delete('/purchase-detail/remove/{id}', [App\Http\Controllers\Admin\PurchaseDetailsController::class, 'removePurchaseDetail']);
     Route::post('/purchase-detail/create', [App\Http\Controllers\Admin\PurchaseDetailsController::class, 'createPurchaseDetail']);
+    Route::put('/purchase-detail/update/{id}', [App\Http\Controllers\Admin\PurchaseDetailsController::class, 'updatePurchaseDetail']);
 
     Route::get('/suppliers-table/data', [App\Http\Controllers\Admin\SuppliersController::class, 'getSuppliersTable']);
     Route::get('/suppliers-select', [App\Http\Controllers\Admin\SuppliersController::class, 'getSelecSupplier']);
