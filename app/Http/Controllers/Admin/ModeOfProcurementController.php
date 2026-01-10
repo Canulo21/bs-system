@@ -9,6 +9,13 @@ use Illuminate\Http\Request;
 class ModeOfProcurementController extends Controller
 {
     //
+
+    public function getSelectMOP() {
+        $mops = ModeOfProcurement::orderBy('mode_abbreviation', 'asc')->get(['id', 'mode_abbreviation', 'mode_name']);
+        return response()->json($mops);
+    }
+
+
     public function getModeOfProcurementTable(Request $request) {
 
         $query = ModeOfProcurement::orderBy('mode_name', 'asc');

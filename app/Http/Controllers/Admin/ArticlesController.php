@@ -9,6 +9,13 @@ use Illuminate\Http\Request;
 class ArticlesController extends Controller
 {
     //
+
+    public function getSelectArticles() {
+        $articles = Article::orderBy('article_name', 'asc')->get(['id', 'article_name']);
+        return response()->json($articles);
+    }
+
+
     public function getArticlesTable(Request $request) {
         $query = Article::orderBy('article_name', 'asc');
 

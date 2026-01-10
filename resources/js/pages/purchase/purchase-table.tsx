@@ -35,6 +35,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 
+import { useForm } from '@inertiajs/react';
 import axios from 'axios';
 import { ArrowUpDown, Download, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -43,12 +44,66 @@ import InputError from '../../components/input-error';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { PurchaseDetail } from '../../types';
+import {
+    Article,
+    ModeOfProcurement,
+    PurchaseDetail,
+    Supplier,
+} from '../../types';
 
 export default function PurchaseTable() {
     const [paginationData, setPaginationData] = useState<PurchaseDetail[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
+
+    const [selectMOP, setSelectMOP] = useState<ModeOfProcurement[]>([]);
+    const [selectArticles, setSelectArticles] = useState<Article[]>([]);
+    const [selectSuppliers, setSelectSuppliers] = useState<Supplier[]>([]);
+
+    // Add form
+    const { data, setData, errors, setError, clearErrors } = useForm({
+        mode_id: '',
+        purchase_number: '',
+        purchase_date: '',
+        purchase_date_issued: '',
+        supplier_id: '',
+        article_id: '',
+        purchase_amount: '',
+    });
+
+    // for Select Input Options
+
+    const fetchSelectArticles = async () => {
+        try {
+            const response = await axios.get('/articles-select');
+            const data = await response.data;
+            setSelectArticles(data);
+        } catch (error) {
+            console.error('Error fetching articles:', error);
+        }
+    };
+
+    const fetchSelectMOP = async () => {
+        try {
+            const response = await axios.get('/mode-of-procurement-select');
+            const data = await response.data;
+            setSelectMOP(data);
+        } catch (error) {
+            console.error('Error fetching articles:', error);
+        }
+    };
+
+    const fetchSelectSuppliers = async () => {
+        try {
+            const response = await axios.get('/suppliers-select');
+            const data = await response.data;
+            setSelectSuppliers(data);
+        } catch (error) {
+            console.error('Error fetching articles:', error);
+        }
+    };
+
+    // end of select input options
 
     const fetchData = async (page: number = 1) => {
         try {
@@ -66,6 +121,9 @@ export default function PurchaseTable() {
 
     useEffect(() => {
         fetchData(currentPage);
+        fetchSelectArticles();
+        fetchSelectMOP();
+        fetchSelectSuppliers();
     }, [currentPage]);
 
     const handleDeletePurchase = (id: number) => {
@@ -98,6 +156,47 @@ export default function PurchaseTable() {
         });
     };
 
+    // Add new purchase details
+    const handleAddPurchaseDetails = async (e: React.FormEvent) => {
+        e.preventDefault();
+        clearErrors();
+
+        try {
+            console.log('Form Data:', data);
+
+            const res = await axios.post('/purchase-detail/create', {
+                mode_id: data.mode_id,
+                purchase_number: data.purchase_number,
+                purchase_date: data.purchase_date,
+                purchase_date_issued: data.purchase_date_issued,
+                supplier_id: data.supplier_id,
+                article_id: data.article_id,
+                purchase_amount: data.purchase_amount,
+            });
+            await fetchData();
+
+            setData({
+                mode_id: '',
+                purchase_number: '',
+                purchase_date: '',
+                purchase_date_issued: '',
+                supplier_id: '',
+                article_id: '',
+                purchase_amount: '',
+            });
+
+            Swal.fire({
+                position: 'center',
+                icon: 'success',
+                title: res.data.message,
+                showConfirmButton: false,
+                timer: 1500,
+            });
+        } catch (err) {
+            setError(err.response.data.errors);
+        }
+    };
+
     return (
         <div className="h-full overflow-y-auto px-4 pb-4">
             <div className="sticky top-0 z-20 bg-background pt-4 pb-2">
@@ -113,14 +212,22 @@ export default function PurchaseTable() {
                             <DialogHeader>
                                 <DialogTitle>Add New Purchase</DialogTitle>
                             </DialogHeader>
-                            <form>
+                            <form onSubmit={handleAddPurchaseDetails}>
                                 <div>
                                     <div className="flex gap-4">
                                         <div className="w-1/2">
                                             <Label className="text-md mt-4 mb-2 block text-sm">
                                                 M.O.P
                                             </Label>
-                                            <Select>
+                                            <Select
+                                                value={data.mode_id}
+                                                onValueChange={(value) =>
+                                                    setData({
+                                                        ...data,
+                                                        mode_id: value,
+                                                    })
+                                                }
+                                            >
                                                 <SelectTrigger className="w-full uppercase">
                                                     <SelectValue placeholder="M.O.P" />
                                                 </SelectTrigger>
@@ -129,21 +236,30 @@ export default function PurchaseTable() {
                                                         <SelectLabel>
                                                             M.O.P
                                                         </SelectLabel>
-                                                        <SelectItem
-                                                            value="dc"
-                                                            className="uppercase"
-                                                        >
-                                                            dc
-                                                        </SelectItem>
-                                                        <SelectItem
-                                                            value="pb"
-                                                            className="uppercase"
-                                                        >
-                                                            pb
-                                                        </SelectItem>
+                                                        {selectMOP.map(
+                                                            (item) => (
+                                                                <SelectItem
+                                                                    key={
+                                                                        item.id
+                                                                    }
+                                                                    value={
+                                                                        item.mode_abbreviation
+                                                                    }
+                                                                    className="capitalize"
+                                                                >
+                                                                    {
+                                                                        item.mode_abbreviation
+                                                                    }
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
                                                     </SelectGroup>
                                                 </SelectContent>
                                             </Select>
+                                            <InputError
+                                                message={errors.mode_id}
+                                                className="mt-2"
+                                            />
                                         </div>
                                         <div className="w-1/2">
                                             <Label className="text-md mt-4 mb-2 block text-sm">
@@ -152,6 +268,18 @@ export default function PurchaseTable() {
                                             <Input
                                                 type="text"
                                                 placeholder="P.O No."
+                                                value={data.purchase_number}
+                                                onChange={(e) =>
+                                                    setData({
+                                                        ...data,
+                                                        purchase_number:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                            />
+                                            <InputError
+                                                message={errors.purchase_number}
+                                                className="mt-2"
                                             />
                                         </div>
                                     </div>
@@ -164,6 +292,18 @@ export default function PurchaseTable() {
                                             <Input
                                                 type="date"
                                                 placeholder="date"
+                                                value={data.purchase_date}
+                                                onChange={(e) =>
+                                                    setData({
+                                                        ...data,
+                                                        purchase_date:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                            />
+                                            <InputError
+                                                message={errors.purchase_date}
+                                                className="mt-2"
                                             />
                                         </div>
                                         <div className="w-1/2">
@@ -173,6 +313,20 @@ export default function PurchaseTable() {
                                             <Input
                                                 type="date"
                                                 placeholder="date"
+                                                value={
+                                                    data.purchase_date_issued
+                                                }
+                                                onChange={(e) =>
+                                                    setData({
+                                                        ...data,
+                                                        purchase_date_issued:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                            />
+                                            <InputError
+                                                message={errors.purchase_date}
+                                                className="mt-2"
                                             />
                                         </div>
                                     </div>
@@ -182,7 +336,15 @@ export default function PurchaseTable() {
                                             <Label className="text-md mt-4 mb-2 block text-sm">
                                                 Supplier Name
                                             </Label>
-                                            <Select>
+                                            <Select
+                                                value={data.supplier_id}
+                                                onValueChange={(value) =>
+                                                    setData({
+                                                        ...data,
+                                                        supplier_id: value,
+                                                    })
+                                                }
+                                            >
                                                 <SelectTrigger className="w-full capitalize">
                                                     <SelectValue placeholder="Supplier Name" />
                                                 </SelectTrigger>
@@ -191,22 +353,30 @@ export default function PurchaseTable() {
                                                         <SelectLabel>
                                                             Supplier Name
                                                         </SelectLabel>
-                                                        <SelectItem
-                                                            value="FJ-JD Trading"
-                                                            className="capitalize"
-                                                        >
-                                                            FJ-JD Trading
-                                                        </SelectItem>
-                                                        <SelectItem
-                                                            value="Variance Trading Corporation"
-                                                            className="capitalize"
-                                                        >
-                                                            Variance Trading
-                                                            Corporation
-                                                        </SelectItem>
+                                                        {selectSuppliers.map(
+                                                            (item) => (
+                                                                <SelectItem
+                                                                    key={
+                                                                        item.id
+                                                                    }
+                                                                    value={
+                                                                        item.supplier_name
+                                                                    }
+                                                                    className="capitalize"
+                                                                >
+                                                                    {
+                                                                        item.supplier_name
+                                                                    }
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
                                                     </SelectGroup>
                                                 </SelectContent>
                                             </Select>
+                                            <InputError
+                                                message={errors.supplier_id}
+                                                className="mt-2"
+                                            />
                                         </div>
                                     </div>
 
@@ -215,7 +385,15 @@ export default function PurchaseTable() {
                                             <Label className="text-md mt-4 mb-2 block text-sm">
                                                 Article/Ordered
                                             </Label>
-                                            <Select>
+                                            <Select
+                                                value={data.article_id}
+                                                onValueChange={(value) =>
+                                                    setData({
+                                                        ...data,
+                                                        article_id: value,
+                                                    })
+                                                }
+                                            >
                                                 <SelectTrigger className="w-full capitalize">
                                                     <SelectValue placeholder="Article Name" />
                                                 </SelectTrigger>
@@ -224,21 +402,30 @@ export default function PurchaseTable() {
                                                         <SelectLabel>
                                                             Article Name
                                                         </SelectLabel>
-                                                        <SelectItem
-                                                            value="Office Equipment"
-                                                            className="capitalize"
-                                                        >
-                                                            Office Equipment
-                                                        </SelectItem>
-                                                        <SelectItem
-                                                            value="Medical Equipment"
-                                                            className="capitalize"
-                                                        >
-                                                            Medical Equipment
-                                                        </SelectItem>
+                                                        {selectArticles.map(
+                                                            (item) => (
+                                                                <SelectItem
+                                                                    key={
+                                                                        item.id
+                                                                    }
+                                                                    value={
+                                                                        item.article_name
+                                                                    }
+                                                                    className="capitalize"
+                                                                >
+                                                                    {
+                                                                        item.article_name
+                                                                    }
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
                                                     </SelectGroup>
                                                 </SelectContent>
                                             </Select>
+                                            <InputError
+                                                message={errors.article_id}
+                                                className="mt-2"
+                                            />
                                         </div>
                                     </div>
 
@@ -251,6 +438,18 @@ export default function PurchaseTable() {
                                                 type="number"
                                                 min={0}
                                                 placeholder="Amount"
+                                                value={data.purchase_amount}
+                                                onChange={(e) =>
+                                                    setData({
+                                                        ...data,
+                                                        purchase_amount:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                            />
+                                            <InputError
+                                                message={errors.purchase_amount}
+                                                className="mt-2"
                                             />
                                         </div>
                                     </div>
@@ -258,6 +457,7 @@ export default function PurchaseTable() {
                                     <InputError className="mt-2" />
                                     <Button
                                         variant="default"
+                                        type="submit"
                                         className="mt-8 w-full"
                                     >
                                         Save

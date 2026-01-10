@@ -9,6 +9,12 @@ use Illuminate\Http\Request;
 class SuppliersController extends Controller
 {
     //
+
+    public function getSelecSupplier() {
+        $supplier = Supplier::orderBy('supplier_name', 'asc')->get(['id', 'supplier_name']);
+        return response()->json($supplier);
+    }
+
     public function getSuppliersTable(Request $request) {
 
         $query = Supplier::orderBy('supplier_name', 'asc');
