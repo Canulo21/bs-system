@@ -37,7 +37,14 @@ import {
 
 import { useForm } from '@inertiajs/react';
 import axios from 'axios';
-import { ArrowUpDown, Download, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+    ArrowUpDown,
+    Download,
+    Pencil,
+    Plus,
+    RefreshCcw,
+    Trash2,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import InputError from '../../components/input-error';
@@ -58,6 +65,13 @@ export default function PurchaseTable() {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [selectedPurchase, setSelectedPurchase] =
         useState<PurchaseDetail | null>(null);
+
+    // ⭐ NEW: add filters state
+    const [filters, setFilters] = useState({
+        start_date: '',
+        end_date: '',
+        category: 'created_at',
+    });
 
     const [selectMOP, setSelectMOP] = useState<ModeOfProcurement[]>([]);
     const [selectArticles, setSelectArticles] = useState<Article[]>([]);
@@ -91,59 +105,50 @@ export default function PurchaseTable() {
         purchase_amount: '',
     });
 
-    // for Select Input Options
-
     const fetchSelectArticles = async () => {
-        try {
-            const response = await axios.get('/articles-select');
-            const data = await response.data;
-            setSelectArticles(data);
-        } catch (error) {
-            console.error('Error fetching articles:', error);
-        }
+        const response = await axios.get('/articles-select');
+        setSelectArticles(response.data);
     };
-
     const fetchSelectMOP = async () => {
-        try {
-            const response = await axios.get('/mode-of-procurement-select');
-            const data = await response.data;
-            setSelectMOP(data);
-        } catch (error) {
-            console.error('Error fetching articles:', error);
-        }
+        const response = await axios.get('/mode-of-procurement-select');
+        setSelectMOP(response.data);
     };
-
     const fetchSelectSuppliers = async () => {
-        try {
-            const response = await axios.get('/suppliers-select');
-            const data = await response.data;
-            setSelectSuppliers(data);
-        } catch (error) {
-            console.error('Error fetching articles:', error);
-        }
+        const response = await axios.get('/suppliers-select');
+        setSelectSuppliers(response.data);
     };
 
-    // end of select input options
-
+    // ⭐ UPDATED: fetch table with filters
     const fetchData = async (page: number = 1) => {
-        try {
-            const response = await fetch(`/purchase-table/data?page=${page}`);
-            const data = await response.json();
+        const query = new URLSearchParams({
+            page: String(page),
+            start_date: filters.start_date,
+            end_date: filters.end_date,
+            category: filters.category,
+        });
 
-            // Set suppliers and pagination info
-            setPaginationData(data.data);
-            setCurrentPage(data.current_page);
-            setLastPage(data.last_page);
-        } catch (error) {
-            console.error('Error fetching suppliers:', error);
-        }
+        const response = await fetch(`/purchase-table/data?${query}`);
+        const data = await response.json();
+
+        setPaginationData(data.data);
+        setCurrentPage(data.current_page);
+        setLastPage(data.last_page);
     };
 
     useEffect(() => {
-        fetchData(currentPage);
         fetchSelectArticles();
         fetchSelectMOP();
         fetchSelectSuppliers();
+    }, []);
+
+    // ⭐ NEW: Auto reload when filters change
+    useEffect(() => {
+        fetchData(1); // reset to page 1 when filtering
+    }, [filters]);
+
+    // ⭐ Keep existing pagination behavior
+    useEffect(() => {
+        fetchData(currentPage);
     }, [currentPage]);
 
     const handleDeletePurchase = (id: number) => {
@@ -157,42 +162,25 @@ export default function PurchaseTable() {
             confirmButtonText: 'Yes, delete it!',
         }).then(async (result) => {
             if (result.isConfirmed) {
-                try {
-                    const res = await axios.delete(
-                        `/purchase-detail/remove/${id}`,
-                    );
-                    await fetchData();
-                    Swal.fire({
-                        position: 'center',
-                        icon: 'success',
-                        title: res.data.message,
-                        showConfirmButton: false,
-                        timer: 1500,
-                    });
-                } catch (err) {
-                    console.error('Error deleting procurement:', err);
-                }
+                const res = await axios.delete(`/purchase-detail/remove/${id}`);
+                await fetchData();
+                Swal.fire({
+                    position: 'center',
+                    icon: 'success',
+                    title: res.data.message,
+                    showConfirmButton: false,
+                    timer: 1500,
+                });
             }
         });
     };
 
-    // Add new purchase details
     const handleAddPurchaseDetails = async (e: React.FormEvent) => {
         e.preventDefault();
         clearErrors();
 
         try {
-            console.log('Form Data:', data);
-
-            const res = await axios.post('/purchase-detail/create', {
-                mode_id: data.mode_id,
-                purchase_number: data.purchase_number,
-                purchase_date: data.purchase_date,
-                purchase_date_issued: data.purchase_date_issued,
-                supplier_id: data.supplier_id,
-                article_id: data.article_id,
-                purchase_amount: data.purchase_amount,
-            });
+            const res = await axios.post('/purchase-detail/create', data);
             await fetchData();
 
             setData({
@@ -212,12 +200,11 @@ export default function PurchaseTable() {
                 showConfirmButton: false,
                 timer: 1500,
             });
-        } catch (err) {
+        } catch (err: any) {
             setError(err.response.data.errors);
         }
     };
 
-    // Open edit modal and load selected article
     const handleUpdatePurchase = (id: number) => {
         const record = paginationData.find((d) => d.id === id);
         if (!record) return;
@@ -236,7 +223,6 @@ export default function PurchaseTable() {
         setIsEditDialogOpen(true);
     };
 
-    // Submit edited article
     const submitUpdatePurchase = async () => {
         if (!selectedPurchase) return;
 
@@ -265,303 +251,375 @@ export default function PurchaseTable() {
     return (
         <div className="h-full overflow-y-auto px-4 pb-4">
             <div className="sticky top-0 z-20 bg-background pt-4 pb-2">
-                <h1 className="mb-2 text-xl font-bold tracking-wide uppercase">
+                <h1 className="mb-10 text-xl font-bold tracking-wide uppercase">
                     Purchase Details Table
                 </h1>
-                <div className="flex justify-end gap-4">
-                    <Dialog>
-                        <DialogTrigger className="flex items-center gap-2 rounded-lg bg-pink-600 px-3 text-sm font-bold text-white hover:opacity-80">
-                            <Plus /> Add
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Add New Purchase</DialogTitle>
-                            </DialogHeader>
-                            <form onSubmit={handleAddPurchaseDetails}>
-                                <div>
-                                    <div className="flex gap-4">
-                                        <div className="w-1/2">
-                                            <Label className="text-md mt-4 mb-2 block text-sm">
-                                                M.O.P
-                                            </Label>
-                                            <Select
-                                                value={data.mode_id}
-                                                onValueChange={(value) =>
-                                                    setData({
-                                                        ...data,
-                                                        mode_id: value,
-                                                    })
-                                                }
-                                            >
-                                                <SelectTrigger className="w-full uppercase">
-                                                    <SelectValue placeholder="M.O.P" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectGroup>
-                                                        <SelectLabel>
-                                                            M.O.P
-                                                        </SelectLabel>
-                                                        {selectMOP.map(
-                                                            (item) => (
-                                                                <SelectItem
-                                                                    key={
-                                                                        item.id
-                                                                    }
-                                                                    value={String(
-                                                                        item.id,
-                                                                    )}
-                                                                    className="capitalize"
-                                                                >
-                                                                    {
-                                                                        item.mode_abbreviation
-                                                                    }
-                                                                </SelectItem>
-                                                            ),
-                                                        )}
-                                                    </SelectGroup>
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError
-                                                message={errors.mode_id}
-                                                className="mt-2"
-                                            />
-                                        </div>
-                                        <div className="w-1/2">
-                                            <Label className="text-md mt-4 mb-2 block text-sm">
-                                                P.O No.
-                                            </Label>
-                                            <Input
-                                                type="text"
-                                                placeholder="P.O No."
-                                                value={data.purchase_number}
-                                                onChange={(e) =>
-                                                    setData({
-                                                        ...data,
-                                                        purchase_number:
-                                                            e.target.value,
-                                                    })
-                                                }
-                                            />
-                                            <InputError
-                                                message={errors.purchase_number}
-                                                className="mt-2"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-4 flex gap-4">
-                                        <div className="w-1/2">
-                                            <Label className="text-md mt-4 mb-2 block text-sm">
+                <div className="flex items-end justify-between gap-4">
+                    <div>
+                        <h3 className="text-md mb-4 font-semibold">Filters</h3>
+                        <div className="flex gap-4">
+                            <div className="flex flex-col gap-1">
+                                <Label className="text-xs font-medium opacity-75">
+                                    START DATE
+                                </Label>
+                                <Input
+                                    type="date"
+                                    className="mt-1 mb-2 w-[160px]"
+                                    value={filters.start_date}
+                                    onChange={(e) =>
+                                        setFilters({
+                                            ...filters,
+                                            start_date: e.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <Label className="text-xs font-medium opacity-75">
+                                    END DATE
+                                </Label>
+                                <Input
+                                    type="date"
+                                    className="mt-1 mb-2 w-[160px]"
+                                    value={filters.end_date}
+                                    onChange={(e) =>
+                                        setFilters({
+                                            ...filters,
+                                            end_date: e.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <Label className="text-xs font-medium opacity-75">
+                                    Category
+                                </Label>
+                                <Select
+                                    value={filters.category}
+                                    onValueChange={(value) =>
+                                        setFilters({
+                                            ...filters,
+                                            category: value,
+                                        })
+                                    }
+                                >
+                                    <SelectTrigger className="mt-1 w-[160px]">
+                                        <ArrowUpDown />
+                                        <SelectValue placeholder="Category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectLabel>Category</SelectLabel>
+                                            <SelectItem value="created_at">
+                                                Date Created (default)
+                                            </SelectItem>
+                                            <SelectItem value="purchase_date">
                                                 P.O Date
-                                            </Label>
-                                            <Input
-                                                type="date"
-                                                placeholder="date"
-                                                value={data.purchase_date}
-                                                onChange={(e) =>
-                                                    setData({
-                                                        ...data,
-                                                        purchase_date:
-                                                            e.target.value,
-                                                    })
-                                                }
-                                            />
-                                            <InputError
-                                                message={errors.purchase_date}
-                                                className="mt-2"
-                                            />
-                                        </div>
-                                        <div className="w-1/2">
-                                            <Label className="text-md mt-4 mb-2 block text-sm">
+                                            </SelectItem>
+                                            <SelectItem value="purchase_date_issued">
                                                 Date Issued
-                                            </Label>
-                                            <Input
-                                                type="date"
-                                                placeholder="date"
-                                                value={
-                                                    data.purchase_date_issued
-                                                }
-                                                onChange={(e) =>
-                                                    setData({
-                                                        ...data,
-                                                        purchase_date_issued:
-                                                            e.target.value,
-                                                    })
-                                                }
-                                            />
-                                            <InputError
-                                                message={errors.purchase_date}
-                                                className="mt-2"
-                                            />
+                                            </SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Button
+                                    className="mt-6"
+                                    onClick={() =>
+                                        setFilters({
+                                            start_date: '',
+                                            end_date: '',
+                                            category: 'created_at',
+                                        })
+                                    }
+                                >
+                                    <RefreshCcw />
+                                    Clear Filters
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <Dialog>
+                            <DialogTrigger className="flex items-center gap-2 rounded-lg bg-pink-600 px-3 text-sm font-bold text-white hover:opacity-80">
+                                <Plus /> Add
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Add New Purchase</DialogTitle>
+                                </DialogHeader>
+                                <form onSubmit={handleAddPurchaseDetails}>
+                                    <div>
+                                        <div className="flex gap-4">
+                                            <div className="w-1/2">
+                                                <Label className="text-md mt-4 mb-2 block text-sm">
+                                                    M.O.P
+                                                </Label>
+                                                <Select
+                                                    value={data.mode_id}
+                                                    onValueChange={(value) =>
+                                                        setData({
+                                                            ...data,
+                                                            mode_id: value,
+                                                        })
+                                                    }
+                                                >
+                                                    <SelectTrigger className="w-full uppercase">
+                                                        <SelectValue placeholder="M.O.P" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectGroup>
+                                                            <SelectLabel>
+                                                                M.O.P
+                                                            </SelectLabel>
+                                                            {selectMOP.map(
+                                                                (item) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            item.id
+                                                                        }
+                                                                        value={String(
+                                                                            item.id,
+                                                                        )}
+                                                                        className="capitalize"
+                                                                    >
+                                                                        {
+                                                                            item.mode_abbreviation
+                                                                        }
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
+                                                        </SelectGroup>
+                                                    </SelectContent>
+                                                </Select>
+                                                <InputError
+                                                    message={errors.mode_id}
+                                                    className="mt-2"
+                                                />
+                                            </div>
+
+                                            <div className="w-1/2">
+                                                <Label className="text-md mt-4 mb-2 block text-sm">
+                                                    P.O No.
+                                                </Label>
+                                                <Input
+                                                    type="text"
+                                                    placeholder="P.O No."
+                                                    value={data.purchase_number}
+                                                    onChange={(e) =>
+                                                        setData({
+                                                            ...data,
+                                                            purchase_number:
+                                                                e.target.value,
+                                                        })
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        errors.purchase_number
+                                                    }
+                                                    className="mt-2"
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div className="mt-4 flex gap-4">
-                                        <div className="w-full">
-                                            <Label className="text-md mt-4 mb-2 block text-sm">
-                                                Supplier Name
-                                            </Label>
-                                            <Select
-                                                value={data.supplier_id}
-                                                onValueChange={(value) =>
-                                                    setData({
-                                                        ...data,
-                                                        supplier_id: value,
-                                                    })
-                                                }
-                                            >
-                                                <SelectTrigger className="w-full capitalize">
-                                                    <SelectValue placeholder="Supplier Name" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectGroup>
-                                                        <SelectLabel>
-                                                            Supplier Name
-                                                        </SelectLabel>
-                                                        {selectSuppliers.map(
-                                                            (item) => (
-                                                                <SelectItem
-                                                                    key={
-                                                                        item.id
-                                                                    }
-                                                                    value={String(
-                                                                        item.id,
-                                                                    )}
-                                                                    className="capitalize"
-                                                                >
-                                                                    {
-                                                                        item.supplier_name
-                                                                    }
-                                                                </SelectItem>
-                                                            ),
-                                                        )}
-                                                    </SelectGroup>
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError
-                                                message={errors.supplier_id}
-                                                className="mt-2"
-                                            />
+                                        <div className="mt-4 flex gap-4">
+                                            <div className="w-1/2">
+                                                <Label className="text-md mt-4 mb-2 block text-sm">
+                                                    P.O Date
+                                                </Label>
+                                                <Input
+                                                    type="date"
+                                                    value={data.purchase_date}
+                                                    onChange={(e) =>
+                                                        setData({
+                                                            ...data,
+                                                            purchase_date:
+                                                                e.target.value,
+                                                        })
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        errors.purchase_date
+                                                    }
+                                                    className="mt-2"
+                                                />
+                                            </div>
+
+                                            <div className="w-1/2">
+                                                <Label className="text-md mt-4 mb-2 block text-sm">
+                                                    Date Issued
+                                                </Label>
+                                                <Input
+                                                    type="date"
+                                                    value={
+                                                        data.purchase_date_issued
+                                                    }
+                                                    onChange={(e) =>
+                                                        setData({
+                                                            ...data,
+                                                            purchase_date_issued:
+                                                                e.target.value,
+                                                        })
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        errors.purchase_date_issued
+                                                    }
+                                                    className="mt-2"
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div className="mt-4 flex gap-4">
-                                        <div className="w-full">
-                                            <Label className="text-md mt-4 mb-2 block text-sm">
-                                                Article/Ordered
-                                            </Label>
-                                            <Select
-                                                value={data.article_id}
-                                                onValueChange={(value) =>
-                                                    setData({
-                                                        ...data,
-                                                        article_id: value,
-                                                    })
-                                                }
-                                            >
-                                                <SelectTrigger className="w-full capitalize">
-                                                    <SelectValue placeholder="Article Name" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectGroup>
-                                                        <SelectLabel>
-                                                            Article Name
-                                                        </SelectLabel>
-                                                        {selectArticles.map(
-                                                            (item) => (
-                                                                <SelectItem
-                                                                    key={
-                                                                        item.id
-                                                                    }
-                                                                    value={String(
-                                                                        item.id,
-                                                                    )}
-                                                                    className="capitalize"
-                                                                >
-                                                                    {
-                                                                        item.article_name
-                                                                    }
-                                                                </SelectItem>
-                                                            ),
-                                                        )}
-                                                    </SelectGroup>
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError
-                                                message={errors.article_id}
-                                                className="mt-2"
-                                            />
+                                        <div className="mt-4 flex gap-4">
+                                            <div className="w-full">
+                                                <Label className="text-md mt-4 mb-2 block text-sm">
+                                                    Supplier Name
+                                                </Label>
+                                                <Select
+                                                    value={data.supplier_id}
+                                                    onValueChange={(value) =>
+                                                        setData({
+                                                            ...data,
+                                                            supplier_id: value,
+                                                        })
+                                                    }
+                                                >
+                                                    <SelectTrigger className="w-full capitalize">
+                                                        <SelectValue placeholder="Supplier Name" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectGroup>
+                                                            <SelectLabel>
+                                                                Supplier Name
+                                                            </SelectLabel>
+                                                            {selectSuppliers.map(
+                                                                (item) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            item.id
+                                                                        }
+                                                                        value={String(
+                                                                            item.id,
+                                                                        )}
+                                                                        className="capitalize"
+                                                                    >
+                                                                        {
+                                                                            item.supplier_name
+                                                                        }
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
+                                                        </SelectGroup>
+                                                    </SelectContent>
+                                                </Select>
+                                                <InputError
+                                                    message={errors.supplier_id}
+                                                    className="mt-2"
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div className="mt-4 flex gap-4">
-                                        <div className="w-full">
-                                            <Label className="text-md mt-4 mb-2 block text-sm">
-                                                Amount (Php)
-                                            </Label>
-                                            <Input
-                                                type="number"
-                                                min={0}
-                                                placeholder="Amount"
-                                                value={data.purchase_amount}
-                                                onChange={(e) =>
-                                                    setData({
-                                                        ...data,
-                                                        purchase_amount:
-                                                            e.target.value,
-                                                    })
-                                                }
-                                            />
-                                            <InputError
-                                                message={errors.purchase_amount}
-                                                className="mt-2"
-                                            />
+                                        <div className="mt-4 flex gap-4">
+                                            <div className="w-full">
+                                                <Label className="text-md mt-4 mb-2 block text-sm">
+                                                    Article/Ordered
+                                                </Label>
+                                                <Select
+                                                    value={data.article_id}
+                                                    onValueChange={(value) =>
+                                                        setData({
+                                                            ...data,
+                                                            article_id: value,
+                                                        })
+                                                    }
+                                                >
+                                                    <SelectTrigger className="w-full capitalize">
+                                                        <SelectValue placeholder="Article Name" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectGroup>
+                                                            <SelectLabel>
+                                                                Article Name
+                                                            </SelectLabel>
+                                                            {selectArticles.map(
+                                                                (item) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            item.id
+                                                                        }
+                                                                        value={String(
+                                                                            item.id,
+                                                                        )}
+                                                                        className="capitalize"
+                                                                    >
+                                                                        {
+                                                                            item.article_name
+                                                                        }
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
+                                                        </SelectGroup>
+                                                    </SelectContent>
+                                                </Select>
+                                                <InputError
+                                                    message={errors.article_id}
+                                                    className="mt-2"
+                                                />
+                                            </div>
                                         </div>
+
+                                        <div className="mt-4 flex gap-4">
+                                            <div className="w-full">
+                                                <Label className="text-md mt-4 mb-2 block text-sm">
+                                                    Amount (Php)
+                                                </Label>
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    step="any"
+                                                    placeholder="Amount"
+                                                    value={data.purchase_amount}
+                                                    onChange={(e) =>
+                                                        setData({
+                                                            ...data,
+                                                            purchase_amount:
+                                                                e.target.value,
+                                                        })
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        errors.purchase_amount
+                                                    }
+                                                    className="mt-2"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <Button
+                                            variant="default"
+                                            type="submit"
+                                            className="mt-8 w-full"
+                                        >
+                                            Save
+                                        </Button>
                                     </div>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
 
-                                    <InputError className="mt-2" />
-                                    <Button
-                                        variant="default"
-                                        type="submit"
-                                        className="mt-8 w-full"
-                                    >
-                                        Save
-                                    </Button>
-                                </div>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
-
-                    <Button className="bg-green-600 text-white hover:bg-green-800 hover:text-amber-100">
-                        <Download className="mr-2" /> Export PDF
-                    </Button>
-
-                    <Select>
-                        <SelectTrigger className="w-[160px]">
-                            <ArrowUpDown />
-                            <SelectValue placeholder="Filter by" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectGroup>
-                                <SelectLabel>Filter</SelectLabel>
-                                <SelectItem value="defualt">Defualt</SelectItem>
-                                <SelectItem value="Purchase Order Date">
-                                    P.O Date
-                                </SelectItem>
-                                <SelectItem value="date issued">
-                                    Date Issued
-                                </SelectItem>
-                                <SelectItem value="Supplier">
-                                    Supplier
-                                </SelectItem>
-                                <SelectItem value="Article/Ordered">
-                                    Article/Ordered
-                                </SelectItem>
-                            </SelectGroup>
-                        </SelectContent>
-                    </Select>
+                        <Button className="bg-green-600 text-white hover:bg-green-800 hover:text-amber-100">
+                            <Download className="mr-2" /> Export PDF
+                        </Button>
+                    </div>
                 </div>
             </div>
+
             <Table>
                 <TableCaption>A list of purchase details.</TableCaption>
                 <TableHeader>
@@ -639,7 +697,6 @@ export default function PurchaseTable() {
                 </TableBody>
             </Table>
 
-            {/* Pagination Controls */}
             {lastPage > 1 && (
                 <div className="mt-5 flex items-center justify-center gap-4">
                     <Button
@@ -662,7 +719,7 @@ export default function PurchaseTable() {
                 </div>
             )}
 
-            {/* Edit Dialog */}
+            {/* EDIT DIALOG */}
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
@@ -719,13 +776,13 @@ export default function PurchaseTable() {
                                             className="mt-2"
                                         />
                                     </div>
+
                                     <div className="w-1/2">
                                         <Label className="text-md mt-4 mb-2 block text-sm">
                                             P.O No.
                                         </Label>
                                         <Input
                                             type="text"
-                                            placeholder="P.O No."
                                             value={editData.purchase_number}
                                             onChange={(e) =>
                                                 setEditData({
@@ -749,7 +806,6 @@ export default function PurchaseTable() {
                                         </Label>
                                         <Input
                                             type="date"
-                                            placeholder="date"
                                             value={editData.purchase_date}
                                             onChange={(e) =>
                                                 setEditData({
@@ -764,13 +820,13 @@ export default function PurchaseTable() {
                                             className="mt-2"
                                         />
                                     </div>
+
                                     <div className="w-1/2">
                                         <Label className="text-md mt-4 mb-2 block text-sm">
                                             Date Issued
                                         </Label>
                                         <Input
                                             type="date"
-                                            placeholder="date"
                                             value={
                                                 editData.purchase_date_issued
                                             }
@@ -783,7 +839,9 @@ export default function PurchaseTable() {
                                             }
                                         />
                                         <InputError
-                                            message={editErrors.purchase_date}
+                                            message={
+                                                editErrors.purchase_date_issued
+                                            }
                                             className="mt-2"
                                         />
                                     </div>
@@ -891,7 +949,7 @@ export default function PurchaseTable() {
                                         <Input
                                             type="number"
                                             min={0}
-                                            placeholder="Amount"
+                                            step="any"
                                             value={editData.purchase_amount}
                                             onChange={(e) =>
                                                 setEditData({
@@ -908,13 +966,12 @@ export default function PurchaseTable() {
                                     </div>
                                 </div>
 
-                                <InputError className="mt-2" />
                                 <Button
                                     variant="default"
                                     type="submit"
                                     className="mt-8 w-full"
                                 >
-                                    Save
+                                    Save Changes
                                 </Button>
                             </div>
                         </form>

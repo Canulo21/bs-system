@@ -4,28 +4,55 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\PurchaseDetails;
+use App\Models\Supplier;
+use App\Models\Article;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 
 class PurchaseDetailsController extends Controller
-{   
-    //
-
-    public function getPurchaseDetailsTable() {
-       $table = PurchaseDetails::with([
+{
+   public function getPurchaseDetailsTable(Request $request)
+    {
+        $query = PurchaseDetails::with([
             'mode:id,mode_abbreviation',
             'supplier:id,supplier_name',
             'article:id,article_name',
-        ])
-        ->latest()
-        ->paginate(15);
+        ]);
 
+        /**
+         * ⭐ Determine sorting column
+         */
+        $sortColumn = match ($request->category) {
+            'purchase_date' => 'purchase_date',
+            'purchase_date_issued' => 'purchase_date_issued',
+            default => 'created_at'
+        };
 
-        return response()->json($table);
+        /**
+         * ⭐ Apply date filter ONLY if both start & end are passed
+         */
+        if ($request->start_date && $request->end_date) {
+            $query->whereBetween($sortColumn, [
+                $request->start_date,
+                $request->end_date
+            ]);
+        }
 
+        /**
+         * ⭐ Order by selected column (always ASC — change to DESC if needed)
+         */
+        $query->orderBy($sortColumn, 'asc');
+
+        /**
+         * ⭐ Paginate (15 rows)
+         */
+        return response()->json(
+            $query->paginate(15)
+        );
     }
 
-    public function createPurchaseDetail(Request $request) {
+
+    public function createPurchaseDetail(Request $request)
+    {
         $purchaseDetail = $request->validate([
             'mode_id' => 'required|exists:mode_of_procurements,id',
             'purchase_number' => 'required|string',
@@ -44,7 +71,8 @@ class PurchaseDetailsController extends Controller
         ]);
     }
 
-    public function updatePurchaseDetail(Request $request, $id) {
+    public function updatePurchaseDetail(Request $request, $id)
+    {
         $purchaseDetail = PurchaseDetails::findOrFail($id);
 
         $validatedData = $request->validate([
@@ -65,7 +93,8 @@ class PurchaseDetailsController extends Controller
         ]);
     }
 
-    public function removePurchaseDetail($id) {
+    public function removePurchaseDetail($id)
+    {
         $purchaseDetail = PurchaseDetails::findOrFail($id);
         $purchaseDetail->delete();
 
